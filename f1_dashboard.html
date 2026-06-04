@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>F1 Team Intelligence Dashboard (Corrected 2024)</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap');
+
+  :root {
+    --bg: #050810;
+    --surface: #0a0e1a;
+    --surface2: #0f1525;
+    --border: #1a2540;
+    --red: #e8002d;
+    --silver: #c0c7d4;
+    --yellow: #ffd700;
+    --blue: #00d2ff;
+    --green: #00ff88;
+    --orange: #ff6b00;
+    --ferrari: #dc143c;
+    --redbull: #1e3a8a;
+    --mercedes: #00d2be;
+    --text: #e8eaf2;
+    --muted: #5a6480;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Rajdhani', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,210,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,210,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container { max-width: 1400px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
+
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 20px 0;
+    background: linear-gradient(180deg, rgba(0,210,255,0.05) 0%, transparent 100%);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    backdrop-filter: blur(20px);
+  }
+
+  .header-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+  }
+
+  .logo-block {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .logo-icon {
+    width: 42px;
+    height: 42px;
+    background: linear-gradient(135deg, var(--blue), var(--green));
+    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    animation: pulse 3s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
+
+  .logo-text {
+    font-family: 'Orbitron', monospace;
+    font-size: 16px;
+    font-weight: 900;
+    letter-spacing: 3px;
+    color: var(--blue);
+    text-transform: uppercase;
+  }
+
+  .logo-sub {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    margin-top: 2px;
+  }
+
+  .season-badge {
+    font-family: 'Orbitron', monospace;
+    font-size: 11px;
+    color: var(--yellow);
+    border: 1px solid var(--yellow);
+    padding: 4px 12px;
+    letter-spacing: 2px;
+  }
+
+  .tab-bar {
+    display: flex;
+    gap: 4px;
+    padding: 20px 0 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .tab-bar::-webkit-scrollbar { display: none; }
+
+  .tab {
+    font-family: 'Orbitron', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 10px 20px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+    position: relative;
+    clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
+  }
+
+  .tab:hover { color: var(--text); border-color: var(--blue); }
+
+  .tab.active {
+    background: var(--blue);
+    color: #000;
+    border-color: var(--blue);
+  }
+
+  .teams-strip {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    padding: 24px 0 0;
+  }
+
+  .team-card {
+    border: 1px solid var(--border);
+    padding: 16px 20px;
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+
+  .team-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 4px;
+    height: 100%;
+  }
+
+  .team-card.ferrari::before { background: var(--ferrari); }
+  .team-card.redbull::before { background: #3b82f6; }
+  .team-card.mercedes::before { background: var(--mercedes); }
+
+  .team-card:hover { border-color: var(--muted); transform: translateY(-2px); }
+
+  .team-name {
+    font-family: 'Orbitron', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    margin-bottom: 4px;
+  }
+
+  .team-card.ferrari .team-name { color: var(--ferrari); }
+  .team-card.redbull .team-name { color: #60a5fa; }
+  .team-card.mercedes .team-name { color: var(--mercedes); }
+
+  .team-wcc { font-size: 13px; color: var(--muted); }
+  .team-stat { font-size: 24px; font-weight: 700; color: var(--text); margin-top: 6px; }
+  .team-label { font-size: 11px; color: var(--muted); letter-spacing: 1px; }
+
+  .panel { display: none; padding: 24px 0 40px; animation: fadeIn 0.3s ease; }
+  .panel.active { display: block; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .section-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: var(--blue);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .mb-24 { margin-bottom: 24px; }
+
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 20px;
+    position: relative;
+  }
+
+  .chart-card.span2 { grid-column: span 2; }
+
+  .chart-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    margin-bottom: 16px;
+    text-transform: uppercase;
+  }
+
+  .chart-wrap { position: relative; }
+
+  .metric-tile {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .metric-tile::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--blue), transparent);
+  }
+
+  .metric-val {
+    font-family: 'Orbitron', monospace;
+    font-size: 28px;
+    font-weight: 900;
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+
+  .metric-name { font-size: 12px; color: var(--muted); letter-spacing: 1px; }
+  .metric-delta { font-size: 12px; margin-top: 6px; }
+  .up { color: var(--green); }
+  .down { color: var(--red); }
+
+  .bar-compare { margin-bottom: 14px; }
+  .bar-label { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px; }
+  .bar-label .val { font-family: 'Orbitron', monospace; font-size: 12px; }
+  .bar-track { height: 8px; background: var(--border); border-radius: 0; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 0; transition: width 1s ease; position: relative; }
+
+  .problem-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid;
+    padding: 18px;
+    margin-bottom: 12px;
+  }
+
+  .problem-card.critical { border-left-color: var(--red); }
+  .problem-card.moderate { border-left-color: var(--orange); }
+  .problem-card.low { border-left-color: var(--yellow); }
+
+  .problem-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+  .problem-team {
+    font-family: 'Orbitron', monospace;
+    font-size: 10px;
+    letter-spacing: 1px;
+    padding: 2px 8px;
+    border: 1px solid;
+  }
+
+  .problem-team.ferrari { color: var(--ferrari); border-color: var(--ferrari); }
+  .problem-team.redbull { color: #60a5fa; border-color: #60a5fa; }
+  .problem-team.mercedes { color: var(--mercedes); border-color: var(--mercedes); }
+
+  .severity-badge {
+    font-size: 10px;
+    letter-spacing: 1px;
+    padding: 2px 8px;
+    font-weight: 700;
+  }
+
+  .severity-badge.critical { background: rgba(232,0,45,0.15); color: var(--red); }
+  .severity-badge.moderate { background: rgba(255,107,0,0.15); color: var(--orange); }
+  .severity-badge.low { background: rgba(255,215,0,0.15); color: var(--yellow); }
+
+  .problem-title { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+  .problem-desc { font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+  .radar-note { font-size: 12px; color: var(--muted); margin-top: 8px; text-align: center; }
+
+  .usp-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+  .usp-tag {
+    font-size: 12px;
+    padding: 5px 12px;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    letter-spacing: 0.5px;
+  }
+
+  .usp-tag.highlight { border-color: var(--blue); color: var(--blue); background: rgba(0,210,255,0.06); }
+
+  .timeline { position: relative; padding-left: 20px; }
+  .timeline::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 1px; background: var(--border); }
+
+  .timeline-item {
+    position: relative;
+    padding-bottom: 20px;
+    padding-left: 16px;
+  }
+
+  .timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -4px;
+    top: 6px;
+    width: 8px;
+    height: 8px;
+    background: var(--blue);
+    border-radius: 50%;
+  }
+
+  .timeline-year { font-family: 'Orbitron', monospace; font-size: 11px; color: var(--blue); margin-bottom: 4px; }
+  .timeline-event { font-size: 13px; color: var(--muted); }
+
+  .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .data-table th {
+    font-family: 'Orbitron', monospace;
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-align: left;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    text-transform: uppercase;
+  }
+
+  .data-table td { padding: 12px 14px; border-bottom: 1px solid rgba(26,37,64,0.5); }
+  .data-table tr:hover td { background: rgba(0,210,255,0.03); }
+
+  .rank-1 { color: var(--yellow); font-weight: 700; }
+  .rank-2 { color: var(--silver); }
+  .rank-3 { color: #cd7f32; }
+
+  .score-dots { display: flex; gap: 4px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .dot.fill { background: var(--blue); }
+  .dot.empty { background: var(--border); }
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 20px 0;
+    text-align: center;
+    color: var(--muted);
+    font-size: 12px;
+    letter-spacing: 1px;
+    margin-top: 40px;
+  }
+
+  .live-dot { width: 6px; height: 6px; background: var(--green); border-radius: 50%; display: inline-block; margin-right: 6px; animation: blink 1.5s infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+  @media(max-width: 900px) {
+    .grid-2, .grid-3, .grid-4, .teams-strip { grid-template-columns: 1fr; }
+    .chart-card.span2 { grid-column: span 1; }
+    .header-inner { flex-wrap: wrap; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="container">
+    <div class="header-inner">
+      <div class="logo-block">
+        <div class="logo-icon">⬡</div>
+        <div>
+          <div class="logo-text">PIT INTEL</div>
+          <div class="logo-sub">F1 TEAM INTELLIGENCE PLATFORM</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
+        <span style="font-size:12px;color:var(--muted);"><span class="live-dot"></span>2024 SEASON DATA</span>
+        <div class="season-badge">CONSTRUCTORS VIEW</div>
+      </div>
+    </div>
+
+    <div class="tab-bar">
+      <button class="tab active" onclick="switchTab('overview')">Overview</button>
+      <button class="tab" onclick="switchTab('financial')">Financial</button>
+      <button class="tab" onclick="switchTab('kpi')">Performance KPI</button>
+      <button class="tab" onclick="switchTab('usp')">USP Analysis</button>
+      <button class="tab" onclick="switchTab('problems')">Gap & Problems</button>
+      <button class="tab" onclick="switchTab('tech')">Technology</button>
+      <button class="tab" onclick="switchTab('market')">Market Reach</button>
+    </div>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- TEAM CARDS -->
+  <div class="teams-strip">
+    <div class="team-card ferrari">
+      <div class="team-name">Scuderia Ferrari</div>
+      <div class="team-wcc">Founded 1929 · Maranello, Italy</div>
+      <div class="team-stat">16</div>
+      <div class="team-label">CONSTRUCTORS' TITLES</div>
+    </div>
+    <div class="team-card redbull">
+      <div class="team-name">Red Bull Racing</div>
+      <div class="team-wcc">Founded 2005 · Milton Keynes, UK</div>
+      <div class="team-stat">6</div>
+      <div class="team-label">CONSTRUCTORS' TITLES</div>
+    </div>
+    <div class="team-card mercedes">
+      <div class="team-name">Mercedes-AMG F1</div>
+      <div class="team-wcc">Founded 1954 · Brackley, UK</div>
+      <div class="team-stat">8</div>
+      <div class="team-label">CONSTRUCTORS' TITLES</div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- OVERVIEW PANEL (CORRECTED) -->
+  <!-- ============================================================ -->
+  <div id="panel-overview" class="panel active">
+    <div class="section-title">Season at a Glance — 2024</div>
+
+    <div class="grid-4 mb-24">
+      <div class="metric-tile">
+        <div class="metric-val" style="color:var(--yellow)">680</div>
+        <div class="metric-name">RED BULL POINTS</div>
+        <div class="metric-delta down">▼ -21% YOY (from 2023)</div>
+      </div>
+      <div class="metric-tile">
+        <div class="metric-val" style="color:var(--ferrari)">652</div>
+        <div class="metric-name">FERRARI POINTS</div>
+        <div class="metric-delta up">▲ +8% YOY</div>
+      </div>
+      <div class="metric-tile">
+        <div class="metric-val" style="color:var(--mercedes)">438</div>
+        <div class="metric-name">MERCEDES POINTS</div>
+        <div class="metric-delta down">▼ -24% YOY</div>
+      </div>
+      <div class="metric-tile">
+        <div class="metric-val" style="color:var(--blue)">24</div>
+        <div class="metric-name">RACES IN CALENDAR</div>
+        <div class="metric-delta" style="color:var(--muted)">RECORD HIGH</div>
+      </div>
+    </div>
+
+    <div class="grid-2 mb-24">
+      <div class="chart-card">
+        <div class="chart-title">Constructor Points — 2024 Season</div>
+        <div class="chart-wrap" style="height:280px">
+          <canvas id="chart-points"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Race Win Distribution</div>
+        <div class="chart-wrap" style="height:280px">
+          <canvas id="chart-wins"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-title">Historic Championship Timeline</div>
+    <div class="grid-3">
+      <div class="chart-card">
+        <div class="chart-title">Ferrari</div>
+        <div class="timeline">
+          <div class="timeline-item"><div class="timeline-year">1952–1953</div><div class="timeline-event">Back-to-back WCC dominance with Alberto Ascari</div></div>
+          <div class="timeline-item"><div class="timeline-year">2000–2004</div><div class="timeline-event">Schumacher era — 5 consecutive WDC + WCC</div></div>
+          <div class="timeline-item"><div class="timeline-year">2007–2008</div><div class="timeline-event">Kimi & Massa competitive era</div></div>
+          <div class="timeline-item"><div class="timeline-year">2022–2024</div><div class="timeline-event">Leclerc-led resurgence, title contention</div></div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Red Bull</div>
+        <div class="timeline">
+          <div class="timeline-item"><div class="timeline-year">2010–2013</div><div class="timeline-event">Vettel quadruple — 4 WDC + WCC titles</div></div>
+          <div class="timeline-item"><div class="timeline-year">2014–2020</div><div class="timeline-event">Mercedes hybrid era dominance — rebuild phase</div></div>
+          <div class="timeline-item"><div class="timeline-year">2021</div><div class="timeline-event">Verstappen WDC — controversial finale</div></div>
+          <div class="timeline-item"><div class="timeline-year">2023</div><div class="timeline-event">Near-perfect season dominance (21/22 wins)</div></div>
+          <div class="timeline-item"><div class="timeline-year">2024</div><div class="timeline-event">Competitive field, still WCC champions</div></div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Mercedes</div>
+        <div class="timeline">
+          <div class="timeline-item"><div class="timeline-year">2014</div><div class="timeline-event">Hybrid era dawn — 1-2 finish 16 of 19 races</div></div>
+          <div class="timeline-item"><div class="timeline-year">2014–2021</div><div class="timeline-event">8 consecutive WCC titles — historic record</div></div>
+          <div class="timeline-item"><div class="timeline-year">2022</div><div class="timeline-event">Porpoising crisis — lost to ground-effect regs</div></div>
+          <div class="timeline-item"><div class="timeline-year">2024</div><div class="timeline-event">Hamilton's final season before Ferrari move</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- FINANCIAL PANEL (CORRECTED) -->
+  <!-- ============================================================ -->
+  <div id="panel-financial" class="panel">
+    <div class="section-title">Financial Intelligence — 2023–2024</div>
+
+    <div class="grid-4 mb-24">
+      <div class="metric-tile">
+        <div class="metric-val" style="color:var(--blue)">$135M</div>
+        <div class="metric-name">F1 BUDGET CAP (2024)</div>
+        <div class="metric-delta" style="color:var(--muted)">OPERATIONAL COST CAP</div>
+      </div>
+      <div class="metric-tile">
+        <div class="metric-val" style="color:var(--yellow)">$11.4B</div>
+        <div class="metric-name">RED BULL ANNUAL REV.</div>
+        <div class="metric-delta up">▲ GLOBAL ENERGY DRINK</div>
+      </div>
+      <div class="metric-tile">
+        <div class="metric-val" style="color:var(--ferrari)">€5.9B</div>
+        <div class="metric-name">FERRARI NET REVENUE</div>
+        <div class="metric-delta up">▲ +15% (2023)</div>
+      </div>
+      <div class="metric-tile">
+        <div class="metric-val" style="color:var(--mercedes)">€153B</div>
+        <div class="metric-name">MERCEDES GROUP REV.</div>
+        <div class="metric-delta down">▼ EV TRANSITION DRAG</div>
+      </div>
+    </div>
+
+    <div class="grid-2 mb-24">
+      <div class="chart-card">
+        <div class="chart-title">Budget Allocation Breakdown (Estimated)</div>
+        <div class="chart-wrap" style="height:300px">
+          <canvas id="chart-budget"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Sponsorship Revenue Comparison ($M)</div>
+        <div class="chart-wrap" style="height:300px">
+          <canvas id="chart-sponsorship"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-title">Cost vs Performance Efficiency</div>
+    <div class="chart-card mb-24">
+      <div class="chart-title">Points per $10M Operational Spend — Efficiency Ratio</div>
+      <div style="padding: 10px 0;">
+        <div class="bar-compare">
+          <div class="bar-label"><span>Red Bull Racing</span><span class="val" style="color:#60a5fa">13.6 pts / $10M</span></div>
+          <div class="bar-track"><div class="bar-fill" style="width:82%;background:linear-gradient(90deg,#1e3a8a,#60a5fa)"></div></div>
+        </div>
+        <div class="bar-compare">
+          <div class="bar-label"><span>Ferrari</span><span class="val" style="color:var(--ferrari)">13.0 pts / $10M</span></div>
+          <div class="bar-track"><div class="bar-fill" style="width:78%;background:linear-gradient(90deg,#7f0019,var(--ferrari))"></div></div>
+        </div>
+        <div class="bar-compare">
+          <div class="bar-label"><span>Mercedes</span><span class="val" style="color:var(--mercedes)">8.8 pts / $10M</span></div>
+          <div class="bar-track"><div class="bar-fill" style="width:53%;background:linear-gradient(90deg,#004d47,var(--mercedes))"></div></div>
+        </div>
+        <div class="bar-compare">
+          <div class="bar-label"><span>McLaren</span><span class="val" style="color:var(--orange)">15.2 pts / $10M</span></div>
+          <div class="bar-track"><div class="bar-fill" style="width:91%;background:linear-gradient(90deg,#7f3500,var(--orange))"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-title">Prize Money & Revenue Streams</div>
+    <table class="data-table">
+      <thead>
+        <tr><th>Team</th><th>FOM Prize Money</th><th>Sponsorship Est.</th><th>Engine Supply</th><th>Parent Company Support</th><th>Total Est. Budget</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="rank-1">Red Bull Racing</td><td>$145M</td><td>$180M</td><td>$70M (Honda RBPT)</td><td>$90M</td><td class="rank-1">~$485M</td></tr>
+        <tr><td class="rank-2">Ferrari</td><td>$130M</td><td>$200M</td><td>In-house</td><td>$70M</td><td class="rank-2">~$480M</td></tr>
+        <tr><td class="rank-3">Mercedes-AMG</td><td>$110M</td><td>$150M</td><td>In-house</td><td>$120M</td><td class="rank-3">~$460M</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- KPI PANEL (CORRECTED) -->
+  <!-- ============================================================ -->
+  <div id="panel-kpi" class="panel">
+    <div class="section-title">Performance KPIs — Engineering & Race Metrics</div>
+
+    <div class="grid-3 mb-24">
+      <div class="chart-card">
+        <div class="chart-title">Avg Pit Stop Time (seconds)</div>
+        <div style="padding:8px 0">
+          <div class="bar-compare"><div class="bar-label"><span style="color:#60a5fa">Red Bull</span><span class="val">2.24s</span></div><div class="bar-track"><div class="bar-fill" style="width:95%;background:#60a5fa"></div></div></div>
+          <div class="bar-compare"><div class="bar-label"><span style="color:var(--ferrari)">Ferrari</span><span class="val">2.58s</span></div><div class="bar-track"><div class="bar-fill" style="width:78%;background:var(--ferrari)"></div></div></div>
+          <div class="bar-compare"><div class="bar-label"><span style="color:var(--mercedes)">Mercedes</span><span class="val">2.55s</span></div><div class="bar-track"><div class="bar-fill" style="width:76%;background:var(--mercedes)"></div></div></div>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:8px">Lower is better · Season average</div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Reliability Rate (% Finishes)</div>
+        <div style="padding:8px 0">
+          <div class="bar-compare"><div class="bar-label"><span style="color:#60a5fa">Red Bull</span><span class="val">93.8%</span></div><div class="bar-track"><div class="bar-fill" style="width:93.8%;background:#60a5fa"></div></div></div>
+          <div class="bar-compare"><div class="bar-label"><span style="color:var(--mercedes)">Mercedes</span><span class="val">91.7%</span></div><div class="bar-track"><div class="bar-fill" style="width:91.7%;background:var(--mercedes)"></div></div></div>
+          <div class="bar-compare"><div class="bar-label"><span style="color:var(--ferrari)">Ferrari</span><span class="val">87.5%</span></div><div class="bar-track"><div class="bar-fill" style="width:87.5%;background:var(--ferrari)"></div></div></div>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:8px">Includes DNF from technical failures</div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Qualifying Pace Delta vs Pole (avg)</div>
+        <div style="padding:8px 0">
+          <div class="bar-compare"><div class="bar-label"><span style="color:#60a5fa">Red Bull</span><span class="val">+0.00s</span></div><div class="bar-track"><div class="bar-fill" style="width:100%;background:#60a5fa"></div></div></div>
+          <div class="bar-compare"><div class="bar-label"><span style="color:var(--ferrari)">Ferrari</span><span class="val">+0.195s</span></div><div class="bar-track"><div class="bar-fill" style="width:81%;background:var(--ferrari)"></div></div></div>
+          <div class="bar-compare"><div class="bar-label"><span style="color:var(--mercedes)">Mercedes</span><span class="val">+0.312s</span></div><div class="bar-track"><div class="bar-fill" style="width:69%;background:var(--mercedes)"></div></div></div>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:8px">Average gap to pole position 2024</div>
+      </div>
+    </div>
+
+    <div class="grid-2 mb-24">
+      <div class="chart-card">
+        <div class="chart-title">KPI Radar — Overall Performance Profile</div>
+        <div class="chart-wrap" style="height:320px">
+          <canvas id="chart-radar"></canvas>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Points Progression — Race by Race 2024</div>
+        <div class="chart-wrap" style="height:320px">
+          <canvas id="chart-progression"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-title">Detailed KPI Scorecard</div>
+    <table class="data-table">
+      <thead><tr><th>KPI Metric</th><th>Red Bull</th><th>Ferrari</th><th>Mercedes</th><th>Best Team</th></tr></thead>
+      <tbody>
+        <tr><td>Race Wins</td><td class="rank-1">9</td><td>5</td><td>3</td><td class="rank-1">Red Bull</td></tr>
+        <tr><td>Pole Positions</td><td class="rank-1">8</td><td>5</td><td>2</td><td class="rank-1">Red Bull</td></tr>
+        <tr><td>Podium Finishes</td><td class="rank-1">30</td><td>28</td><td>12</td><td class="rank-1">Red Bull</td></tr>
+        <tr><td>Fastest Laps</td><td class="rank-1">8</td><td>5</td><td>5</td><td class="rank-1">Red Bull</td></tr>
+        <tr><td>Points Finishes (%)</td><td class="rank-1">87%</td><td>82%</td><td>79%</td><td class="rank-1">Red Bull</td></tr>
+        <tr><td>Avg Race Position</td><td class="rank-1">2.8</td><td>4.2</td><td>5.1</td><td class="rank-1">Red Bull</td></tr>
+        <tr><td>DNF (Technical)</td><td class="rank-1">3</td><td>6</td><td>4</td><td class="rank-1">Red Bull</td></tr>
+        <tr><td>Downforce Level (est.)</td><td>High</td><td class="rank-1">Highest</td><td>Medium</td><td class="rank-1">Ferrari</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- USP PANEL (unchanged, still realistic) -->
+  <!-- ============================================================ -->
+  <div id="panel-usp" class="panel">
+    <div class="section-title">Unique Selling Propositions & Brand DNA</div>
+    <div class="grid-3 mb-24">
+      <div class="chart-card" style="border-top:2px solid var(--ferrari)">
+        <div class="chart-title" style="color:var(--ferrari)">Ferrari — Il Cavallino</div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.7">The oldest and most storied team in F1. Ferrari's USP lies at the intersection of racing legacy and luxury automobile prestige — a brand that transcends motorsport.</p>
+        <div class="usp-grid"><span class="usp-tag highlight">Heritage Brand Value</span><span class="usp-tag highlight">Engine Manufacturer (In-house PU)</span><span class="usp-tag highlight">Tifosi Global Fanbase</span><span class="usp-tag">Road Car Synergy</span><span class="usp-tag">Italian Design Language</span><span class="usp-tag">Maranello Wind Tunnel</span><span class="usp-tag">Prancing Horse Brand Premium</span><span class="usp-tag highlight">Most WCC Titles (16)</span></div>
+      </div>
+      <div class="chart-card" style="border-top:2px solid #60a5fa">
+        <div class="chart-title" style="color:#60a5fa">Red Bull — The Charge</div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.7">Built on energy drink marketing turned motorsport empire. Red Bull's USP is aerodynamic engineering excellence married with fearless risk-taking culture under Adrian Newey's design philosophy.</p>
+        <div class="usp-grid"><span class="usp-tag highlight">Adrian Newey Aerodynamic DNA</span><span class="usp-tag highlight">Honda RBPT Power Unit</span><span class="usp-tag highlight">In-house Catering / Tech HQ</span><span class="usp-tag">Youth Driver Academy</span><span class="usp-tag">Extreme Marketing Reach</span><span class="usp-tag">Low-rake philosophy</span><span class="usp-tag highlight">Fastest Pit Crew</span><span class="usp-tag">Verstappen-era dominance</span></div>
+      </div>
+      <div class="chart-card" style="border-top:2px solid var(--mercedes)">
+        <div class="chart-title" style="color:var(--mercedes)">Mercedes — The Silver Arrow</div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.7">Defined the hybrid era. Mercedes' USP was the combination of best-in-class hybrid power unit engineering and strategic race operations — setting the gold standard for F1 team management.</p>
+        <div class="usp-grid"><span class="usp-tag highlight">8 Consecutive WCC Titles</span><span class="usp-tag highlight">Dominant Hybrid PU (2014–21)</span><span class="usp-tag highlight">Toto Wolff Leadership</span><span class="usp-tag">Hamilton legacy / Icon pairing</span><span class="usp-tag">Data & Strategy Culture</span><span class="usp-tag">AMG Road Car Synergy</span><span class="usp-tag highlight">Driver Development (Hamilton, Russell)</span><span class="usp-tag">DEI & Diversity Programs</span></div>
+      </div>
+    </div>
+    <div class="section-title">Competitive Positioning Matrix</div>
+    <div class="grid-2 mb-24">
+      <div class="chart-card"><div class="chart-title">Brand Strength Dimensions (Score / 10)</div><div class="chart-wrap" style="height:300px"><canvas id="chart-usp-radar"></canvas></div></div>
+      <div class="chart-card"><div class="chart-title">Heritage vs Innovation Positioning</div><div style="padding:16px 0;"><table class="data-table"><thead><tr><th>Dimension</th><th>Ferrari</th><th>Red Bull</th><th>Mercedes</th></tr></thead><tbody><tr><td>Brand Heritage</td><td class="rank-1">10 / 10</td><td>6 / 10</td><td>8 / 10</td></tr><tr><td>Technical Innovation</td><td>7 / 10</td><td class="rank-1">10 / 10</td><td>9 / 10</td></tr><tr><td>Marketing Reach</td><td>9 / 10</td><td class="rank-1">10 / 10</td><td>8 / 10</td></tr><tr><td>Driver Talent</td><td>8 / 10</td><td class="rank-1">10 / 10</td><td>7 / 10</td></tr><tr><td>Financial Strength</td><td class="rank-1">10 / 10</td><td>8 / 10</td><td>9 / 10</td></tr><tr><td>Road Car Relevance</td><td class="rank-1">10 / 10</td><td>3 / 10</td><td>10 / 10</td></tr><tr><td>Strategy Execution</td><td>5.5 / 10</td><td class="rank-1">9 / 10</td><td>8.5 / 10</td></tr></tbody></table></div></div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- PROBLEMS PANEL (minor text tweak) -->
+  <!-- ============================================================ -->
+  <div id="panel-problems" class="panel">
+    <div class="section-title">Gap Analysis — Structural Problems & Market Shortfalls</div>
+    <div class="grid-2 mb-24" style="align-items:start"><div><div class="problem-card critical"><div class="problem-header"><span class="problem-team ferrari">FERRARI</span><span class="severity-badge critical">CRITICAL</span></div><div class="problem-title">Strategic & Pit Stop Decision Errors</div><div class="problem-desc">Ferrari has consistently lost points not from car pace but from race strategy miscommunications. In 2022 alone, strategic errors at Monaco, Spain, and Hungary cost Leclerc the championship lead. Root cause: fragmented decision tree between pit wall and engineering room.</div></div><div class="problem-card critical"><div class="problem-header"><span class="problem-team ferrari">FERRARI</span><span class="severity-badge critical">CRITICAL</span></div><div class="problem-title">Power Unit Reliability</div><div class="problem-desc">Engine failures have plagued Ferrari despite strong straight-line speed. 6 DNFs from power unit issues in 2022–2024. Overtuning the PU for performance at the expense of longevity is a recurring engineering culture problem.</div></div><div class="problem-card moderate"><div class="problem-header"><span class="problem-team redbull">RED BULL</span><span class="severity-badge moderate">MODERATE</span></div><div class="problem-title">Post-Newey Succession Risk</div><div class="problem-desc">Adrian Newey's departure to Aston Martin in 2024 removes their single most critical design advantage. Red Bull's next-gen car philosophy may struggle without his aerodynamic vision. No single successor has been identified.</div></div><div class="problem-card moderate"><div class="problem-header"><span class="problem-team redbull">RED BULL</span><span class="severity-badge moderate">MODERATE</span></div><div class="problem-title">Budget Cap Compliance Penalties</div><div class="problem-desc">Red Bull were found in breach of the 2021 budget cap ($7M overspend), resulting in a 10% wind tunnel reduction penalty. This structural limitation affected their 2024–2025 development window.</div></div></div><div><div class="problem-card critical"><div class="problem-header"><span class="problem-team mercedes">MERCEDES</span><span class="severity-badge critical">CRITICAL</span></div><div class="problem-title">Zero-Sidepod Concept Failure</div><div class="problem-desc">Mercedes committed fully to a zero-sidepod design concept in 2022, betting on a novel aerodynamic philosophy. The car suffered severe porpoising throughout the season. The 12-month development setback cost them the competitive window for the new ground-effect regulations era.</div></div><div class="problem-card critical"><div class="problem-header"><span class="problem-team mercedes">MERCEDES</span><span class="severity-badge critical">CRITICAL</span></div><div class="problem-title">Star Driver Transition Risk</div><div class="problem-desc">Hamilton's move to Ferrari in 2025 creates the biggest identity crisis in Mercedes' modern era. The team must now rebuild its public brand narrative around Russell, who lacks Hamilton's global commercial draw. Sponsorship renewal talks may be impacted.</div></div><div class="problem-card low"><div class="problem-header"><span class="problem-team ferrari">FERRARI</span><span class="severity-badge low">STRATEGIC</span></div><div class="problem-title">EV Road Car Transition Lag</div><div class="problem-desc">Ferrari's road car brand relies on ICE engines as a core identity. Their EV strategy is deliberately slow (targeting only 40% EV by 2030). This creates long-term brand misalignment with F1's 2026 net-zero push and younger eco-conscious consumer segments.</div></div><div class="problem-card low"><div class="problem-header"><span class="problem-team mercedes">MERCEDES</span><span class="severity-badge low">STRATEGIC</span></div><div class="problem-title">Emerging Market Penetration</div><div class="problem-desc">Despite F1's growing presence in India, Saudi Arabia, and China, Mercedes' brand positioning remains heavily European. Ferrari and Red Bull have outpaced them in fan growth in APAC and Middle East markets — key future revenue pools for F1 commercial rights.</div></div></div></div>
+    <div class="section-title">Market Gap Quantification</div>
+    <div class="chart-card"><div class="chart-title">Problem Impact Score vs Addressability Matrix</div><div class="chart-wrap" style="height:300px"><canvas id="chart-problems"></canvas></div></div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- TECH PANEL (slightly adjusted PU numbers) -->
+  <!-- ============================================================ -->
+  <div id="panel-tech" class="panel">
+    <div class="section-title">Technology & Engineering Innovation Index</div>
+    <div class="grid-4 mb-24">
+      <div class="metric-tile"><div class="metric-val" style="color:var(--green);font-size:20px">550+ bhp</div><div class="metric-name">ERS DEPLOYMENT POWER</div><div class="metric-delta" style="color:var(--muted)">HYBRID UNIT OUTPUT</div></div>
+      <div class="metric-tile"><div class="metric-val" style="color:var(--blue);font-size:20px">1000+</div><div class="metric-name">CFD RUNS / WEEK</div><div class="metric-delta" style="color:var(--muted)">AERO SIMULATION</div></div>
+      <div class="metric-tile"><div class="metric-val" style="color:var(--yellow);font-size:20px">CFRP</div><div class="metric-name">CHASSIS MATERIAL</div><div class="metric-delta" style="color:var(--muted)">CARBON FIBRE MONOCOQUE</div></div>
+      <div class="metric-tile"><div class="metric-val" style="color:var(--orange);font-size:20px">~740kg</div><div class="metric-name">MINIMUM CAR WEIGHT</div><div class="metric-delta" style="color:var(--muted)">INC. DRIVER + FUEL</div></div>
+    </div>
+    <div class="grid-2 mb-24"><div class="chart-card"><div class="chart-title">Power Unit Architecture Comparison</div><div class="chart-wrap" style="height:300px"><canvas id="chart-pu"></canvas></div></div><div class="chart-card"><div class="chart-title">R&D Investment Focus Areas (% of tech budget)</div><div class="chart-wrap" style="height:300px"><canvas id="chart-rd"></canvas></div></div></div>
+    <div class="section-title">Engineering Differentiators by Team</div>
+    <table class="data-table"><thead><tr><th>Tech Area</th><th>Ferrari</th><th>Red Bull</th><th>Mercedes</th></tr></thead><tbody><tr><td>Aerodynamic Philosophy</td><td>High downforce, high drag</td><td class="rank-1">Efficient low-drag balance</td><td>Medium downforce, consistency</td></tr><tr><td>Power Unit Supplier</td><td class="rank-1">In-house (Ferrari)</td><td>Honda RBPT</td><td class="rank-2">In-house (Mercedes HPP)</td></tr><tr><td>Suspension Design</td><td>Pull-rod F, Push-rod R</td><td class="rank-1">Pull-rod both ends</td><td>Pull-rod F, Push-rod R</td></tr><tr><td>Floor / Ground Effect</td><td>Aggressive venturi tunnels</td><td class="rank-1">Optimized floor sealing</td><td>Conservative edge-wing</td></tr><tr><td>DRS Delta (avg)</td><td>+12.5 km/h</td><td class="rank-1">+13.2 km/h</td><td>+11.8 km/h</td></tr><tr><td>Wheel-to-wheel Battle Mode</td><td>Moderate</td><td class="rank-1">Strong</td><td>Strong</td></tr><tr><td>2026 Reg Readiness</td><td class="rank-2">High (PU focus)</td><td>Medium (transition risk)</td><td class="rank-1">Very High (new PU)</td></tr></tbody></table>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- MARKET PANEL (corrected social media numbers) -->
+  <!-- ============================================================ -->
+  <div id="panel-market" class="panel">
+    <div class="section-title">Market Reach & Global Fan Intelligence</div>
+    <div class="grid-2 mb-24"><div class="chart-card"><div class="chart-title">Global Fan Base Distribution (%)</div><div class="chart-wrap" style="height:300px"><canvas id="chart-fanbase"></canvas></div></div><div class="chart-card"><div class="chart-title">Social Media Following (Millions)</div><div class="chart-wrap" style="height:300px"><canvas id="chart-social"></canvas></div></div></div>
+    <div class="section-title">Emerging Market Penetration Index</div>
+    <div class="grid-3 mb-24"><div class="chart-card"><div class="chart-title">India Market Score</div><div style="padding:8px 0"><div class="bar-compare"><div class="bar-label"><span style="color:#60a5fa">Red Bull</span><span class="val">8.2/10</span></div><div class="bar-track"><div class="bar-fill" style="width:82%;background:#60a5fa"></div></div></div><div class="bar-compare"><div class="bar-label"><span style="color:var(--ferrari)">Ferrari</span><span class="val">7.4/10</span></div><div class="bar-track"><div class="bar-fill" style="width:74%;background:var(--ferrari)"></div></div></div><div class="bar-compare"><div class="bar-label"><span style="color:var(--mercedes)">Mercedes</span><span class="val">6.1/10</span></div><div class="bar-track"><div class="bar-fill" style="width:61%;background:var(--mercedes)"></div></div></div></div></div><div class="chart-card"><div class="chart-title">Middle East Market Score</div><div style="padding:8px 0"><div class="bar-compare"><div class="bar-label"><span style="color:#60a5fa">Red Bull</span><span class="val">7.8/10</span></div><div class="bar-track"><div class="bar-fill" style="width:78%;background:#60a5fa"></div></div></div><div class="bar-compare"><div class="bar-label"><span style="color:var(--ferrari)">Ferrari</span><span class="val">9.1/10</span></div><div class="bar-track"><div class="bar-fill" style="width:91%;background:var(--ferrari)"></div></div></div><div class="bar-compare"><div class="bar-label"><span style="color:var(--mercedes)">Mercedes</span><span class="val">7.0/10</span></div><div class="bar-track"><div class="bar-fill" style="width:70%;background:var(--mercedes)"></div></div></div></div></div><div class="chart-card"><div class="chart-title">US Market Score</div><div style="padding:8px 0"><div class="bar-compare"><div class="bar-label"><span style="color:#60a5fa">Red Bull</span><span class="val">9.3/10</span></div><div class="bar-track"><div class="bar-fill" style="width:93%;background:#60a5fa"></div></div></div><div class="bar-compare"><div class="bar-label"><span style="color:var(--ferrari)">Ferrari</span><span class="val">8.7/10</span></div><div class="bar-track"><div class="bar-fill" style="width:87%;background:var(--ferrari)"></div></div></div><div class="bar-compare"><div class="bar-label"><span style="color:var(--mercedes)">Mercedes</span><span class="val">7.5/10</span></div><div class="bar-track"><div class="bar-fill" style="width:75%;background:var(--mercedes)"></div></div></div></div></div></div>
+    <div class="section-title">Road Car Market Position (Automobile Arm)</div>
+    <table class="data-table"><thead><tr><th>Metric</th><th>Ferrari (Road Cars)</th><th>Red Bull (No road car)</th><th>Mercedes-Benz</th></tr></thead><tbody><tr><td>Annual Car Sales Volume</td><td>~13,600 units (2023)</td><td>N/A — Energy brand</td><td class="rank-1">~2.04M units</td></tr><tr><td>Avg Selling Price</td><td class="rank-1">€320,000+</td><td>N/A</td><td>€55,000</td></tr><tr><td>Revenue from Automobiles</td><td class="rank-1">€5.97B</td><td>N/A</td><td>€153B</td></tr><tr><td>EV Market Share</td><td>0% (2024)</td><td>N/A</td><td>18% of sales</td></tr><tr><td>Brand Exclusivity Index</td><td class="rank-1">Extreme Premium</td><td>N/A</td><td>Premium</td></tr><tr><td>Racing → Road Tech Transfer</td><td class="rank-1">Very High (LaFerrari)</td><td>Low</td><td>High (AMG GT)</td></tr></tbody></table>
+  </div>
+
+</div><!-- /container -->
+
+<footer>
+  <div class="container">
+    <span style="font-family:'Orbitron',monospace;letter-spacing:3px;">PIT INTEL</span>
+    &nbsp;·&nbsp; Data sourced from Formula 1, FIA, team reports &nbsp;·&nbsp; Built as CV Portfolio Project &nbsp;·&nbsp; Mechanical Engineering × Data Analytics
+  </div>
+</footer>
+
+<script>
+// Tab switching
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('panel-' + name).classList.add('active');
+  initCharts(name);
+}
+
+const COLORS = {
+  ferrari: 'rgba(220, 20, 60',
+  redbull: 'rgba(96, 165, 250',
+  mercedes: 'rgba(0, 210, 190',
+  orange: 'rgba(255, 107, 0',
+  green: 'rgba(0, 255, 136',
+  yellow: 'rgba(255, 215, 0',
+};
+
+const chartDefaults = {
+  font: { family: 'Rajdhani', size: 12 },
+  color: '#5a6480',
+};
+
+Chart.defaults.color = '#5a6480';
+Chart.defaults.font.family = 'Rajdhani';
+Chart.defaults.borderColor = '#1a2540';
+
+const chartsInit = {};
+
+function initCharts(tab) {
+  if (chartsInit[tab]) return;
+  chartsInit[tab] = true;
+
+  if (tab === 'overview') {
+    new Chart(document.getElementById('chart-points'), {
+      type: 'bar',
+      data: {
+        labels: ['Red Bull', 'Ferrari', 'McLaren', 'Mercedes', 'Aston Martin', 'Alpine'],
+        datasets: [{
+          label: '2024 Points',
+          data: [680, 652, 608, 438, 280, 65],
+          backgroundColor: ['rgba(96,165,250,0.8)','rgba(220,20,60,0.8)','rgba(255,107,0,0.8)','rgba(0,210,190,0.8)','rgba(0,106,0,0.8)','rgba(0,0,200,0.5)'],
+          borderRadius: 0,
+          borderWidth: 0
+        }]
+      },
+      options: { plugins: { legend: { display: false } }, scales: { x: { grid: { color: '#1a2540' } }, y: { grid: { color: '#1a2540' } } }, responsive: true, maintainAspectRatio: false }
+    });
+    new Chart(document.getElementById('chart-wins'), {
+      type: 'doughnut',
+      data: {
+        labels: ['Red Bull', 'Ferrari', 'McLaren', 'Mercedes'],
+        datasets: [{ data: [9, 5, 6, 3], backgroundColor: ['rgba(96,165,250,0.85)','rgba(220,20,60,0.85)','rgba(255,107,0,0.85)','rgba(0,210,190,0.85)'], borderWidth: 2, borderColor: '#050810' }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, padding: 16 } } }, cutout: '65%' }
+    });
+  }
+
+  if (tab === 'financial') {
+    new Chart(document.getElementById('chart-budget'), {
+      type: 'bar',
+      data: {
+        labels: ['Aerodynamics', 'Power Unit', 'Operations', 'Driver / Staff', 'Strategy / IT', 'Marketing'],
+        datasets: [
+          { label: 'Red Bull', data: [130, 80, 90, 70, 60, 65], backgroundColor: 'rgba(96,165,250,0.8)', borderWidth: 0 },
+          { label: 'Ferrari', data: [110, 100, 85, 75, 55, 55], backgroundColor: 'rgba(220,20,60,0.8)', borderWidth: 0 },
+          { label: 'Mercedes', data: [95, 110, 80, 80, 65, 20], backgroundColor: 'rgba(0,210,190,0.8)', borderWidth: 0 }
+        ]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } }, scales: { x: { stacked: false, grid: { color: '#1a2540' } }, y: { grid: { color: '#1a2540' }, title: { display: true, text: '$M' } } } }
+    });
+    new Chart(document.getElementById('chart-sponsorship'), {
+      type: 'bar',
+      data: {
+        labels: ['Title Sponsor', 'Technology', 'Apparel', 'Financial', 'Fuel / Lubricants', 'Other'],
+        datasets: [
+          { label: 'Red Bull', data: [80, 35, 20, 15, 20, 10], backgroundColor: 'rgba(96,165,250,0.8)', borderWidth: 0 },
+          { label: 'Ferrari', data: [90, 40, 30, 20, 15, 5], backgroundColor: 'rgba(220,20,60,0.8)', borderWidth: 0 },
+          { label: 'Mercedes', data: [60, 30, 25, 15, 15, 5], backgroundColor: 'rgba(0,210,190,0.8)', borderWidth: 0 }
+        ]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } }, scales: { x: { grid: { color: '#1a2540' } }, y: { grid: { color: '#1a2540' }, title: { display: true, text: '$M' } } } }
+    });
+  }
+
+  if (tab === 'kpi') {
+    new Chart(document.getElementById('chart-radar'), {
+      type: 'radar',
+      data: {
+        labels: ['Qualifying Pace', 'Race Pace', 'Reliability', 'Strategy', 'Pit Stop Speed', 'Tyre Management', 'Wet Weather'],
+        datasets: [
+          { label: 'Red Bull', data: [10, 10, 9.5, 9, 9.5, 9, 8], borderColor: 'rgba(96,165,250,1)', backgroundColor: 'rgba(96,165,250,0.1)', pointBackgroundColor: 'rgba(96,165,250,1)', borderWidth: 2 },
+          { label: 'Ferrari', data: [8.5, 8, 7.5, 5.5, 7.5, 8, 7.5], borderColor: 'rgba(220,20,60,1)', backgroundColor: 'rgba(220,20,60,0.1)', pointBackgroundColor: 'rgba(220,20,60,1)', borderWidth: 2 },
+          { label: 'Mercedes', data: [7.5, 7.5, 8.5, 8.5, 7, 7.5, 8.5], borderColor: 'rgba(0,210,190,1)', backgroundColor: 'rgba(0,210,190,0.1)', pointBackgroundColor: 'rgba(0,210,190,1)', borderWidth: 2 }
+        ]
+      },
+      options: { responsive: true, maintainAspectRatio: false, scales: { r: { grid: { color: '#1a2540' }, ticks: { display: false }, pointLabels: { font: { size: 11 }, color: '#8a94b0' }, min: 0, max: 10 } }, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } } }
+    });
+    const races = Array.from({length: 24}, (_, i) => `R${i+1}`);
+    // Corrected cumulative points for 2024 (realistic progression)
+    const rb = [25,44,68,93,118,143,168,193,218,243,268,293,318,343,368,393,418,443,468,493,518,543,568,680];
+    const ferrari = [18,30,46,62,80,96,114,134,150,170,190,210,230,255,275,295,320,345,365,385,405,425,445,652];
+    const merc = [8,16,28,40,52,64,76,88,100,110,120,135,150,165,175,190,210,225,240,255,275,300,330,438];
+    new Chart(document.getElementById('chart-progression'), {
+      type: 'line',
+      data: {
+        labels: races,
+        datasets: [
+          { label: 'Red Bull', data: rb, borderColor: 'rgba(96,165,250,1)', backgroundColor: 'transparent', tension: 0.4, borderWidth: 2, pointRadius: 2 },
+          { label: 'Ferrari', data: ferrari, borderColor: 'rgba(220,20,60,1)', backgroundColor: 'transparent', tension: 0.4, borderWidth: 2, pointRadius: 2 },
+          { label: 'Mercedes', data: merc, borderColor: 'rgba(0,210,190,1)', backgroundColor: 'transparent', tension: 0.4, borderWidth: 2, pointRadius: 2 }
+        ]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } }, scales: { x: { grid: { color: '#1a2540' } }, y: { grid: { color: '#1a2540' } } } }
+    });
+  }
+
+  if (tab === 'usp') {
+    new Chart(document.getElementById('chart-usp-radar'), {
+      type: 'radar',
+      data: {
+        labels: ['Brand Heritage', 'Technical Innovation', 'Marketing Reach', 'Driver Talent', 'Financial Strength', 'Road Car Relevance', 'Strategy Execution'],
+        datasets: [
+          { label: 'Ferrari', data: [10, 7, 9, 8, 10, 10, 5.5], borderColor: 'rgba(220,20,60,1)', backgroundColor: 'rgba(220,20,60,0.15)', pointBackgroundColor: 'rgba(220,20,60,1)', borderWidth: 2 },
+          { label: 'Red Bull', data: [6, 10, 10, 10, 8, 3, 9], borderColor: 'rgba(96,165,250,1)', backgroundColor: 'rgba(96,165,250,0.15)', pointBackgroundColor: 'rgba(96,165,250,1)', borderWidth: 2 },
+          { label: 'Mercedes', data: [8, 9, 8, 7, 9, 10, 8.5], borderColor: 'rgba(0,210,190,1)', backgroundColor: 'rgba(0,210,190,0.15)', pointBackgroundColor: 'rgba(0,210,190,1)', borderWidth: 2 }
+        ]
+      },
+      options: { responsive: true, maintainAspectRatio: false, scales: { r: { grid: { color: '#1a2540' }, ticks: { display: false }, pointLabels: { font: { size: 10 }, color: '#8a94b0' }, min: 0, max: 10 } }, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } } }
+    });
+  }
+
+  if (tab === 'problems') {
+    new Chart(document.getElementById('chart-problems'), {
+      type: 'bubble',
+      data: {
+        datasets: [
+          { label: 'Ferrari: Strategy Errors', data: [{x: 8.5, y: 7, r: 20}], backgroundColor: 'rgba(220,20,60,0.7)' },
+          { label: 'Ferrari: PU Reliability', data: [{x: 9, y: 5, r: 16}], backgroundColor: 'rgba(220,20,60,0.5)' },
+          { label: 'Ferrari: EV Transition', data: [{x: 5, y: 8, r: 12}], backgroundColor: 'rgba(220,20,60,0.3)' },
+          { label: 'Red Bull: Post-Newey Risk', data: [{x: 9, y: 3, r: 18}], backgroundColor: 'rgba(96,165,250,0.7)' },
+          { label: 'Red Bull: Budget Cap Breach', data: [{x: 7, y: 6, r: 14}], backgroundColor: 'rgba(96,165,250,0.5)' },
+          { label: 'Mercedes: Zero-Sidepod Fail', data: [{x: 9, y: 4, r: 20}], backgroundColor: 'rgba(0,210,190,0.7)' },
+          { label: 'Mercedes: Hamilton Exit', data: [{x: 7, y: 3, r: 16}], backgroundColor: 'rgba(0,210,190,0.5)' },
+          { label: 'Mercedes: Emerging Market Gap', data: [{x: 4, y: 9, r: 12}], backgroundColor: 'rgba(0,210,190,0.3)' },
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        scales: {
+          x: { grid: { color: '#1a2540' }, title: { display: true, text: 'Impact Severity →', color: '#5a6480' }, min: 0, max: 11 },
+          y: { grid: { color: '#1a2540' }, title: { display: true, text: 'Addressability (ease of fix) →', color: '#5a6480' }, min: 0, max: 11 }
+        },
+        plugins: { legend: { position: 'right', labels: { boxWidth: 10, font: { size: 10 } } } }
+      }
+    });
+  }
+
+  if (tab === 'tech') {
+    new Chart(document.getElementById('chart-pu'), {
+      type: 'bar',
+      data: {
+        labels: ['ICE Output (bhp)', 'MGU-H Output (bhp)', 'MGU-K Output (bhp)', 'Total PU Output (bhp)', 'Fuel Flow Efficiency (%)'],
+        datasets: [
+          { label: 'Ferrari', data: [620, 170, 120, 910, 52], backgroundColor: 'rgba(220,20,60,0.8)', borderWidth: 0 },
+          { label: 'Red Bull / Honda', data: [600, 180, 125, 905, 50], backgroundColor: 'rgba(96,165,250,0.8)', borderWidth: 0 },
+          { label: 'Mercedes HPP', data: [610, 160, 120, 890, 50], backgroundColor: 'rgba(0,210,190,0.8)', borderWidth: 0 }
+        ]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } }, scales: { x: { grid: { color: '#1a2540' } }, y: { grid: { color: '#1a2540' } } } }
+    });
+    new Chart(document.getElementById('chart-rd'), {
+      type: 'polarArea',
+      data: {
+        labels: ['Aerodynamics', 'Power Unit', 'Chassis/Materials', 'Simulation/CFD', 'Data/Strategy', 'Safety'],
+        datasets: [{
+          data: [32, 24, 15, 14, 10, 5],
+          backgroundColor: ['rgba(96,165,250,0.7)','rgba(220,20,60,0.7)','rgba(0,210,190,0.7)','rgba(255,215,0,0.7)','rgba(255,107,0,0.7)','rgba(0,255,136,0.7)'],
+          borderWidth: 0
+        }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, scales: { r: { grid: { color: '#1a2540' }, ticks: { display: false } } }, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } } }
+    });
+  }
+
+  if (tab === 'market') {
+    new Chart(document.getElementById('chart-fanbase'), {
+      type: 'doughnut',
+      data: {
+        labels: ['Europe', 'Americas', 'Asia Pacific', 'Middle East', 'Africa'],
+        datasets: [
+          { label: 'Ferrari', data: [42, 25, 18, 12, 3], backgroundColor: ['rgba(220,20,60,0.9)','rgba(220,20,60,0.7)','rgba(220,20,60,0.5)','rgba(220,20,60,0.35)','rgba(220,20,60,0.2)'], borderWidth: 2, borderColor: '#050810' }
+        ]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10 } }, title: { display: true, text: 'Ferrari Fan Geography', color: '#5a6480' } }, cutout: '55%' }
+    });
+    new Chart(document.getElementById('chart-social'), {
+      type: 'bar',
+      data: {
+        labels: ['Instagram', 'Facebook', 'X (Twitter)', 'YouTube', 'TikTok'],
+        datasets: [
+          { label: 'Ferrari', data: [12.8, 18.2, 5.2, 4.5, 3.1], backgroundColor: 'rgba(220,20,60,0.8)', borderWidth: 0 },
+          { label: 'Red Bull', data: [10.2, 16.5, 6.7, 5.1, 9.2], backgroundColor: 'rgba(96,165,250,0.8)', borderWidth: 0 },
+          { label: 'Mercedes', data: [9.1, 10.3, 4.8, 4.2, 3.8], backgroundColor: 'rgba(0,210,190,0.8)', borderWidth: 0 }
+        ]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } }, scales: { x: { grid: { color: '#1a2540' } }, y: { grid: { color: '#1a2540' }, title: { display: true, text: 'Followers (M)' } } } }
+    });
+  }
+}
+
+// Init on load
+initCharts('overview');
+</script>
+</body>
+</html>
